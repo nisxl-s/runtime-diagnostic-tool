@@ -112,7 +112,8 @@ include_rotated_logs = false
 
 Standard active logs include `wso2carbon.log`, `wso2error.log`, `wso2carbon-trace-messages.log`,
 `audit.log`, `http_access.log`, `correlation.log`, `patches.log`, `wso2-mi-open-telemetry.log`,
-`wso2-mi-service.log`, and `wso2-mi-api.log`.
+`wso2-mi-service.log`, and `wso2-mi-api.log`. API Manager active logs also include `api.log`,
+`wso2-apigw-errors.log`, and `wso2-apigw-service.log`.
 
 #### MetricsSnapshot
 

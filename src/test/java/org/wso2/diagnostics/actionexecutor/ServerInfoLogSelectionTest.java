@@ -86,6 +86,17 @@ public class ServerInfoLogSelectionTest {
     }
 
     @Test
+    public void includesActiveApiManagerLogsAndExcludesRotatedCopiesByDefault() throws IOException {
+        Path logs = temporaryFolder.getRoot().toPath().resolve("logs");
+        for (String name : Set.of("api", "wso2-apigw-errors", "wso2-apigw-service")) {
+            Files.writeString(logs.resolve(name + ".log"), "active");
+            Files.writeString(logs.resolve(name + "-2026-11-20.log"), "rotated");
+        }
+        assertEquals(Set.of("logs/wso2carbon.log", "logs/wso2error.log", "logs/audit.log",
+                "logs/api.log", "logs/wso2-apigw-errors.log", "logs/wso2-apigw-service.log"), collectLogs());
+    }
+
+    @Test
     public void includesHeapDumpsIndependentlyOfRotatedLogs() throws IOException {
         settings.put(Constants.SERVER_INFO_EXCLUDE_HEAP_DUMPS, false);
         assertEquals(Set.of("logs/wso2carbon.log", "logs/wso2error.log", "logs/audit.log",

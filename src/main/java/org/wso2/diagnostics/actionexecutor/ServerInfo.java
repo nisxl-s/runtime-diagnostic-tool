@@ -40,7 +40,8 @@ public class ServerInfo implements ActionExecutor {
     private static final Logger log = LogManager.getLogger(ServerInfo.class);
     private static final Set<String> ACTIVE_LOG_NAMES = Set.of("wso2carbon.log", "wso2error.log",
             "wso2carbon-trace-messages.log", "audit.log", "http_access.log", "correlation.log", "patches.log",
-            "wso2-mi-open-telemetry.log", "wso2-mi-service.log", "wso2-mi-api.log");
+            "wso2-mi-open-telemetry.log", "wso2-mi-service.log", "wso2-mi-api.log",
+            "api.log", "wso2-apigw-errors.log", "wso2-apigw-service.log");
     private Map<String, Object> configuration;
 
     public ServerInfo() {
