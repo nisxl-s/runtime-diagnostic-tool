@@ -109,4 +109,42 @@ public class LogWatcherTest {
             entries.add(entry);
         }, 0.1, levels);
     }
+
+    @Test
+    public void recognizesApiManagerHeadersWithTenantAndApplication() throws IOException {
+        Path file = temporaryFolder.newFile().toPath();
+        LogWatcher watcher = watcher(file, null);
+        String prefixedError = "TID: [-1234] [api-gateway] " + ERROR;
+        String prefixedFatal = "TID: [-1234] [] " + FATAL;
+        Files.writeString(file, prefixedError + "\nTID: [-1234] [] " + INFO + "\n" + prefixedFatal + "\n");
+        try (RandomAccessFile reader = new RandomAccessFile(file.toFile(), "r")) {
+            watcher.readLines(reader);
+            watcher.finishEntry();
+        }
+        assertEquals(List.of(prefixedError, prefixedFatal), firstLines);
+        assertEquals(List.of(prefixedError + "\n", prefixedFatal + "\n"), entries);
+    }
+
+    @Test
+    public void detectsTruncationAboveRewoundReadOffset() throws IOException {
+        Path file = temporaryFolder.newFile().toPath();
+        LogWatcher watcher = watcher(file, null);
+        Files.writeString(file, ERROR + "\n" + "partial".repeat(40));
+        String replacementEntry = FATAL + " in replacement log";
+        try (RandomAccessFile original = new RandomAccessFile(file.toFile(), "r")) {
+            long originalLength = Files.size(file);
+            watcher.reopenIfTruncated(original, originalLength);
+            watcher.readLines(original);
+            long rewoundOffset = original.getFilePointer();
+            Files.writeString(file, replacementEntry + "\n");
+            long replacementLength = Files.size(file);
+            assertTrue(rewoundOffset < replacementLength && replacementLength < originalLength);
+            try (RandomAccessFile replacement = watcher.reopenIfTruncated(original, replacementLength)) {
+                assertEquals(0, replacement.getFilePointer());
+                watcher.readLines(replacement);
+                watcher.finishEntry();
+            }
+        }
+        assertEquals(List.of(ERROR, replacementEntry), firstLines);
+    }
 }

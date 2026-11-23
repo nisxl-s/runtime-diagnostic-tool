@@ -39,9 +39,10 @@ public class LogWatcher extends Thread {
     private static final Logger log = LogManager.getLogger(LogWatcher.class);
     private static final Set<String> DEFAULT_TRIGGER_LEVELS = Set.of("ERROR", "FATAL");
     private static final int MAX_ENTRY_LENGTH = 1_000_000;
-    // WSO2 Log4j headers use "[timestamp] LEVEL {logger}".
+    // API Manager can prefix the timestamp with tenant ID and application name.
     private static final Pattern LOG_HEADER = Pattern.compile(
-            "^\\[\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}[.,]\\d{3}\\]\\s+([A-Z]+)\\s+\\{");
+            "^(?:TID:\\s*\\[[^\\]]*\\]\\s+\\[[^\\]]*\\]\\s+)?"
+                    + "\\[\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}[.,]\\d{3}\\]\\s+([A-Z]+)\\s+\\{");
 
     private final File file;
     private final long delay;
@@ -49,6 +50,7 @@ public class LogWatcher extends Thread {
     private final Set<String> triggerLevels;
     private final StringBuilder entry = new StringBuilder();
     private String firstLine;
+    private long lastObservedLength;
 
     public LogWatcher(String filepath, Interpreter interpreter, double delay) {
         this(filepath, interpreter, delay, null);
@@ -77,19 +79,13 @@ public class LogWatcher extends Thread {
                 try {
                     if (reader == null) {
                         reader = new RandomAccessFile(file, "r");
-                        reader.seek(reader.length());
+                        lastObservedLength = reader.length();
+                        reader.seek(lastObservedLength);
                         log.info("Initiating LogWatcher for file: {}", file);
                     }
-                    long position = reader.getFilePointer();
                     long fileLength = file.length();
-                    if (fileLength < position) {
-                        RandomAccessFile replacement = new RandomAccessFile(file, "r");
-                        closeReader(reader);
-                        reader = replacement;
-                        finishEntry();
-                        log.info("Log file has been rotated. Reopening {}", file);
-                        readLines(reader);
-                    } else if (fileLength > position) {
+                    reader = reopenIfTruncated(reader, fileLength);
+                    if (fileLength > reader.getFilePointer()) {
                         readLines(reader);
                     } else {
                         finishEntry();
@@ -106,6 +102,18 @@ public class LogWatcher extends Thread {
         } finally {
             closeReader(reader);
         }
+    }
+
+    RandomAccessFile reopenIfTruncated(RandomAccessFile reader, long fileLength) throws IOException {
+        if (fileLength < lastObservedLength) {
+            finishEntry();
+            RandomAccessFile replacement = new RandomAccessFile(file, "r");
+            closeReader(reader);
+            reader = replacement;
+            log.info("Log file has been rotated. Reopening {}", file);
+        }
+        lastObservedLength = fileLength;
+        return reader;
     }
 
     private void closeReader(RandomAccessFile reader) {
